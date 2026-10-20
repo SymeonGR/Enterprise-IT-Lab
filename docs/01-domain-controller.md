@@ -43,7 +43,7 @@ Install-ADDSForest -DomainName "corp.internal" -DomainNetbiosName "CORP" -Instal
 
 - Set and record the **DSRM** (Safe Mode Administrator) password.
 - Yellow warnings about DNS delegation and cryptography algorithms are expected in a lab.
-- The server reboots automatically. Under x86 emulation this took 20–40 minutes.
+- The server reboots automatically. Under x86 emulation the reboot is very slow — wait for RDP rather than assuming it hung.
 - After reboot, sign in as `CORP\Administrator`.
 
 **Why `.internal`:** it is reserved for private use and will never collide with a public domain. `.local` conflicts with mDNS and causes problems.

@@ -6,7 +6,7 @@ Problems hit while building the lab, and how each was solved.
 
 **Server display went black after installing UTM guest tools**
 - Cause: SPICE / QXL display driver on Windows Server (x86, emulated).
-- Fix: stopped the VM, switched the emulated display card to a simpler one (`VGA` / `bochs-display`, no GPU acceleration), removed the bad driver in Device Manager.
+- Workaround: stopped relying on the UTM console and managed the server over RDP instead. Options if the console is needed: a simpler emulated display card (`VGA` / `bochs-display`, no GPU acceleration) and removing the guest display driver.
 - Lesson: avoid guest display drivers on the emulated server; manage it over RDP instead.
 
 **Copy/paste between macOS and VMs**
@@ -22,7 +22,7 @@ Problems hit while building the lab, and how each was solved.
 - Backups made by copying the `.utm` bundle in Finder to the external drive instead.
 
 **x86 emulation is very slow**
-- DC promotion reboot took 20–40 minutes. Use `nc -vz <ip> 3389` from macOS to know when RDP is up.
+- Reboots (e.g. after DC promotion) are very slow. Use `nc -vz <ip> 3389` from macOS to know when RDP is up.
 
 ## Active Directory
 

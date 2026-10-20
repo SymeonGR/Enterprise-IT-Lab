@@ -6,6 +6,18 @@ Built from scratch on an Apple Silicon Mac using UTM, and documented step by ste
 
 **Why on-prem first:** most enterprises are hybrid. A clean move to Intune starts from a known, documented baseline — the Group Policy, LAPS and BitLocker configuration built here *is* that baseline, and Phase 4 migrates it to cloud management.
 
+## At a glance
+
+| Area | What's demonstrated |
+|---|---|
+| **Group Policy** | Computer vs user policy design, security filtering (incl. the MS16-072 read requirement), Group Policy Preferences, `gpresult`-based troubleshooting |
+| **Endpoint security** | Windows LAPS with encrypted passwords and scoped read/decrypt delegation; RDP restricted to IT via policy |
+| **Access control** | Least privilege on specific OUs, purpose-built access groups, every control tested as an allowed and a denied user |
+| **Windows 11 clients** | Domain join, policy verification, RSAT on Windows 11 Arm64 |
+| **Active Directory** | Forest/DNS build, OU design, computer redirection, users and groups |
+| **PowerShell** | Builds scripted end to end where cmdlets exist ([`scripts/`](scripts/)) |
+| **Troubleshooting** | Every issue hit is documented with cause and fix ([troubleshooting.md](docs/troubleshooting.md)) |
+
 **Approach:** PowerShell-first. Everything from IP configuration to domain join and the Sales GPO was done in PowerShell.
 Two GPOs (logon banner, Remote Desktop) were built deliberately in the GPMC GUI, to practise both ways of working and to cover settings like Group Policy Preferences, which have no native PowerShell cmdlets.
 The *Method* column below shows which is which.
@@ -77,7 +89,7 @@ corp.internal
 
 ## Security approach
 
-The lab is built the way a production domain should be, and gaps are fixed as they're found rather than hidden.
+The lab follows production practice as closely as a two-VM setup allows. Gaps are documented and fixed as they're found, not hidden.
 
 - **Least privilege** — rights are delegated to a specific group on a specific OU (e.g. LAPS read on `OU=Workstations` only), never by making people Domain Admins.
 - **Dedicated groups for access** — permissions go to purpose-built groups (`GG_LAPS_Readers`), not to team groups, so access survives team changes and can be audited in one place.
