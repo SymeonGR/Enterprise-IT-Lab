@@ -49,6 +49,12 @@ Problems hit while building the lab, and how each was solved.
 - Cause: the authorized decryptor was set to a single group (`GG_IT`), which replaces Domain Admins; the decryptor is fixed at encryption time.
 - Fix: dedicated `GG_LAPS_Readers` group (GG_IT + Domain Admins), then `Reset-LapsPassword`. See [07](07-windows-laps.md).
 
+**"Requires elevation" in a prompt started as Administrator**
+- *Run as different user* ≠ *Run as administrator*. Use `Start-Process powershell -Verb RunAs`.
+
+**RSAT not found on Windows 11 ARM64**
+- No Features on Demand on Arm64. On 25H2 use *Turn Windows features on or off* → *RSAT: Server Manager Tools* → AD DS tools.
+
 **Added to a group but still no access**
 - The logon token is stale. Sign out (not just close RDP) and sign back in, or `klist purge`.
 
