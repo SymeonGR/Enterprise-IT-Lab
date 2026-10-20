@@ -1,0 +1,8 @@
+# Keep secrets and local junk out of the repo
+*.txt
+secrets*
+*.key
+*.pfx
+*.utm
+.DS_Store
+site/
