@@ -15,7 +15,7 @@ Built from scratch on an Apple Silicon Mac using UTM, and documented step by ste
 | **Access control** | Least privilege on specific OUs, purpose-built access groups, every control tested as an allowed and a denied user |
 | **Windows 11 clients** | Domain join, policy verification, RSAT on Windows 11 Arm64 |
 | **Active Directory** | Forest/DNS build, OU design, computer redirection, users and groups |
-| **PowerShell** | Builds scripted end to end where cmdlets exist ([`scripts/`](scripts/)) |
+| **PowerShell** | Idempotent, parameterised build scripts with `-WhatIf` support and comment-based help, linted by PSScriptAnalyzer in CI ([`scripts/`](scripts/)) |
 | **Troubleshooting** | Every issue hit is documented with cause and fix ([troubleshooting.md](docs/troubleshooting.md)) |
 
 **Approach:** PowerShell-first. Everything from IP configuration to domain join and the Sales GPO was done in PowerShell.

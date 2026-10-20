@@ -1,17 +1,62 @@
-# Windows LAPS: schema, permissions and reader group. Run on DC01, elevated.
-# The GPO "WS - LAPS" is configured in GPMC (see docs/07-windows-laps.md).
+<#
+.SYNOPSIS
+    Prepares AD for Windows LAPS: schema, reader group, and scoped OU permissions.
 
-$ou = "OU=Workstations,OU=LAB,DC=corp,DC=internal"
+.DESCRIPTION
+    - Extends the schema (one-time, forest-wide, irreversible; skipped if already done)
+    - Creates the reader group and adds the members that need password access
+    - Lets computers in the target OU write their own password
+    - Grants the reader group read access on that OU only
+    The "WS - LAPS" GPO itself is configured in GPMC (see docs/07-windows-laps.md).
 
-# One-time and irreversible: back up the DC first
-Update-LapsADSchema -Verbose
+.EXAMPLE
+    .\07-windows-laps.ps1 -WhatIf
+    .\07-windows-laps.ps1 -Verbose
+#>
+#Requires -Modules ActiveDirectory, LAPS
+[CmdletBinding(SupportsShouldProcess)]
+param(
+    [string]$TargetOU = "OU=Workstations,OU=LAB,$((Get-ADDomain).DistinguishedName)",
+    [string]$ReaderGroup = 'GG_LAPS_Readers',
+    [string]$GroupsOU = "OU=Groups,OU=LAB,$((Get-ADDomain).DistinguishedName)",
+    [string[]]$ReaderMembers = @('GG_IT', 'Domain Admins')
+)
 
-New-ADGroup -Name "GG_LAPS_Readers" -GroupScope Global -Path "OU=Groups,OU=LAB,DC=corp,DC=internal"
-Add-ADGroupMember GG_LAPS_Readers -Members GG_IT, "Domain Admins"
+$ErrorActionPreference = 'Stop'
+$netbios = (Get-ADDomain).NetBIOSName
 
-Set-LapsADComputerSelfPermission -Identity $ou
-Set-LapsADReadPasswordPermission -Identity $ou -AllowedPrincipals "CORP\GG_LAPS_Readers"
-Find-LapsADExtendedRights -Identity $ou
+# Schema: present once the msLAPS-Password attribute exists
+$schemaNC = (Get-ADRootDSE).schemaNamingContext
+$hasSchema = [bool](Get-ADObject -SearchBase $schemaNC -Filter "lDAPDisplayName -eq 'msLAPS-Password'")
+if ($hasSchema) {
+    Write-Verbose 'Windows LAPS schema already present.'
+}
+elseif ($PSCmdlet.ShouldProcess('AD schema', 'Extend for Windows LAPS (irreversible)')) {
+    Update-LapsADSchema -Confirm:$false
+}
 
-# Verify after the GPO has applied on WS01 (does not reveal the password):
-# Get-LapsADPassword -Identity WS01 | Format-List
+# Reader group and membership
+if (-not (Get-ADGroup -Filter "Name -eq '$ReaderGroup'") -and $PSCmdlet.ShouldProcess($ReaderGroup, 'Create global group')) {
+    New-ADGroup -Name $ReaderGroup -GroupScope Global -Path $GroupsOU
+}
+$current = @()
+if (Get-ADGroup -Filter "Name -eq '$ReaderGroup'") {
+    $current = Get-ADGroupMember $ReaderGroup | Select-Object -ExpandProperty Name
+}
+$toAdd = $ReaderMembers | Where-Object { $_ -notin $current }
+if ($toAdd -and $PSCmdlet.ShouldProcess($ReaderGroup, "Add members: $($toAdd -join ', ')")) {
+    Add-ADGroupMember -Identity $ReaderGroup -Members $toAdd
+}
+
+# OU permissions (both cmdlets are safe to re-apply)
+if ($PSCmdlet.ShouldProcess($TargetOU, 'Allow computers to update their own LAPS password')) {
+    Set-LapsADComputerSelfPermission -Identity $TargetOU | Out-Null
+}
+if ($PSCmdlet.ShouldProcess($TargetOU, "Grant $ReaderGroup read access to LAPS passwords")) {
+    Set-LapsADReadPasswordPermission -Identity $TargetOU -AllowedPrincipals "$netbios\$ReaderGroup" | Out-Null
+}
+
+Find-LapsADExtendedRights -Identity $TargetOU
+
+# After the GPO has applied on a client (shows status, not the password):
+#   Get-LapsADPassword -Identity WS01 | Format-List

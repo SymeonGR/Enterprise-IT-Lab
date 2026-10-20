@@ -1,16 +1,51 @@
-# USR - Sales Restrictions: block Control Panel / Settings for GG_Sales only. Run on DC01.
+<#
+.SYNOPSIS
+    Creates the "USR - Sales Restrictions" GPO: Control Panel and Settings blocked, Sales only.
 
-$gpo = "USR - Sales Restrictions"
+.DESCRIPTION
+    Creates and links the GPO only if missing, sets the policy value, and applies security
+    filtering so only the target group gets Apply. Authenticated Users keep Read (not Apply):
+    since MS16-072 user GPOs are read in the computer's context, and without Read the GPO
+    applies to nobody. Ends by printing the permissions for verification.
 
-New-GPO -Name $gpo | New-GPLink -Target "OU=Users,OU=LAB,DC=corp,DC=internal"
+.EXAMPLE
+    .\05-gpo-sales-restrictions.ps1 -WhatIf
+    .\05-gpo-sales-restrictions.ps1 -Verbose
+#>
+#Requires -Modules GroupPolicy, ActiveDirectory
+[CmdletBinding(SupportsShouldProcess)]
+param(
+    [string]$GpoName = 'USR - Sales Restrictions',
+    [string]$TargetOU = "OU=Users,OU=LAB,$((Get-ADDomain).DistinguishedName)",
+    [string]$ApplyGroup = 'GG_Sales'
+)
 
-Set-GPRegistryValue -Name $gpo `
-  -Key "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" `
-  -ValueName "NoControlPanel" -Type DWord -Value 1
+$ErrorActionPreference = 'Stop'
 
-# Security filtering: GG_Sales gets Apply; Authenticated Users keep Read only (MS16-072)
-Set-GPPermission -Name $gpo -TargetName "GG_Sales" -TargetType Group -PermissionLevel GpoApply
-Set-GPPermission -Name $gpo -TargetName "Authenticated Users" -TargetType Group -PermissionLevel GpoRead -Replace
+$gpo = Get-GPO -All | Where-Object DisplayName -eq $GpoName
+if (-not $gpo -and $PSCmdlet.ShouldProcess($GpoName, 'Create GPO')) {
+    $gpo = New-GPO -Name $GpoName
+}
 
-# Verify: expect GG_Sales = GpoApply, Authenticated Users = GpoRead
-Get-GPPermission -Name $gpo -All | Select-Object Trustee, Permission
+$linked = (Get-GPInheritance -Target $TargetOU).GpoLinks | Where-Object DisplayName -eq $GpoName
+if (-not $linked -and $PSCmdlet.ShouldProcess($TargetOU, "Link $GpoName")) {
+    New-GPLink -Name $GpoName -Target $TargetOU | Out-Null
+}
+
+# User Configuration > Administrative Templates > Control Panel >
+# Prohibit access to Control Panel and PC settings
+if ($PSCmdlet.ShouldProcess($GpoName, 'Set NoControlPanel = 1')) {
+    Set-GPRegistryValue -Name $GpoName `
+        -Key 'HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer' `
+        -ValueName 'NoControlPanel' -Type DWord -Value 1 | Out-Null
+}
+
+# Security filtering
+if ($PSCmdlet.ShouldProcess($GpoName, "Apply to $ApplyGroup only; Authenticated Users Read")) {
+    Set-GPPermission -Name $GpoName -TargetName $ApplyGroup -TargetType Group -PermissionLevel GpoApply | Out-Null
+    Set-GPPermission -Name $GpoName -TargetName 'Authenticated Users' -TargetType Group -PermissionLevel GpoRead -Replace | Out-Null
+}
+
+Get-GPPermission -Name $GpoName -All |
+    Where-Object { $_.Trustee.Name -in @($ApplyGroup, 'Authenticated Users') } |
+    Select-Object @{ n = 'Trustee'; e = { $_.Trustee.Name } }, Permission
