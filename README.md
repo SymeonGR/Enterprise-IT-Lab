@@ -72,6 +72,7 @@ corp.internal
 - `maria` (Sales): Control Panel blocked. `nikos` (IT): unaffected — `gpresult` shows the GPO as *filtered out, Denied (Security)*.
 - `nikos` can RDP to WS01; `maria` is denied.
 - LAPS: `nikos` and Domain Admins can read and decrypt WS01's password; `maria` gets nothing; `Reset-LapsPassword` rotates it.
+- RSAT (ADUC) on the Arm64 workstation: `nikos` reads the password from the LAPS tab.
 
 ## Key takeaways
 
@@ -86,6 +87,7 @@ corp.internal
 ## Roadmap
 
 - [x] Windows LAPS — rotating local admin password stored in AD
+- [ ] LAPS-managed local admin account usable for sign-in (built-in Administrator is disabled on Windows 11)
 - [ ] BitLocker on WS01 with recovery keys escrowed to AD
 - [ ] Hybrid identity — Entra Connect, hybrid Entra join
 - [ ] Intune enrollment and co-management

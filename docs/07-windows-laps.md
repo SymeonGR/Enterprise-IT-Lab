@@ -90,6 +90,29 @@ Expected: `Source : EncryptedPassword`, `DecryptionStatus : Success`, `Authorize
 | Read password | `CORP\Administrator` (Domain Admins → GG_LAPS_Readers) | `Success` ✓ |
 | Rotation | `Reset-LapsPassword` on WS01, then check `PasswordUpdateTime` on DC01 | Timestamp updated ✓ |
 
+## 7. Where the helpdesk reads the password
+
+**PowerShell** — works on any domain-joined Windows 11, no extra tools:
+
+```powershell
+Get-LapsADPassword -Identity WS01 -AsPlainText
+```
+
+**GUI (ADUC)** — *Active Directory Users and Computers* → computer object → **Properties** → **LAPS** tab: *Show password*, *Copy password*, *Expire now*, last change and expiry.
+
+Getting ADUC on the **Windows 11 ARM64** workstation:
+
+- RSAT is **not** available as a Feature on Demand on Arm64 — `Get-WindowsCapability -Online -Name "Rsat*"` returns nothing.
+- On **Windows 11 25H2 Arm64**, RSAT is installed from **Turn Windows features on or off** (`optionalfeatures`). AD DS tools sit under **RSAT: Server Manager Tools**; *RSAT: Group Policy Management Tools* was added too.
+
+Tested as `CORP\nikos` (standard user): LAPS tab shows the password. ✓
+
+Production note: admin tools usually live on a dedicated admin workstation or jump host, not on every helpdesk PC.
+
+## Open item
+
+LAPS manages the **built-in Administrator** (RID 500), which is **disabled** by default on Windows 11 — the password is stored and rotated, but can't be used to sign in yet. Next step: a dedicated local admin account managed by LAPS.
+
 ## What went wrong on the way
 
 **Domain Admins locked out of the password**
@@ -109,6 +132,10 @@ even for `CORP\Administrator`.
 - Tying recovery to one team group is fragile: if `GG_IT` is emptied or changed, nobody can recover the password.
 
 Fix: dedicated `GG_LAPS_Readers` group containing `GG_IT` and `Domain Admins`, used for both the read permission and the decryptor; `Reset-LapsPassword` to re-encrypt.
+
+**`Get-WindowsCapability`: "The requested operation requires elevation"**
+
+The prompt was opened with *Run as different user* as `CORP\Administrator`. That gives a different user, **not** an elevated token — UAC still filters it. Fix: `Start-Process powershell -Verb RunAs` and confirm the UAC prompt; the title bar then shows *Administrator:*.
 
 **Group change not taking effect**
 
