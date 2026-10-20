@@ -74,6 +74,17 @@ corp.internal
 - LAPS: `nikos` and Domain Admins can read and decrypt WS01's password; `maria` gets nothing; `Reset-LapsPassword` rotates it.
 - RSAT (ADUC) on the Arm64 workstation: `nikos` reads the password from the LAPS tab.
 
+## Security approach
+
+The lab is built the way a production domain should be, and gaps are fixed as they're found rather than hidden.
+
+- **Least privilege** — rights are delegated to a specific group on a specific OU (e.g. LAPS read on `OU=Workstations` only), never by making people Domain Admins.
+- **Dedicated groups for access** — permissions go to purpose-built groups (`GG_LAPS_Readers`), not to team groups, so access survives team changes and can be audited in one place.
+- **Separate admin accounts** *(next step)* — admin rights move off everyday accounts onto dedicated `adm-` accounts. See the roadmap.
+- **No shared local admin passwords** — Windows LAPS gives every workstation a unique, encrypted, rotating password.
+- **Verify by testing as the wrong user** — every control is tested as an allowed non-admin user *and* as a user who should be denied.
+- **No secrets in the repo** — scripts prompt for passwords at run time; documentation shows status output, never password values.
+
 ## Key takeaways
 
 - Computer policies must be linked to the OU where the **computer** object lives; user policies to where the **user** lives.
@@ -87,6 +98,8 @@ corp.internal
 ## Roadmap
 
 - [x] Windows LAPS — rotating local admin password stored in AD
+- [ ] **Separate admin accounts for IT** — `OU=Admin Accounts`, `adm-nikos`, `GG_Helpdesk_Admins` replacing `GG_IT` in `GG_LAPS_Readers` and the RDP GPO.
+  *Why:* today the same account that reads email and browses the web can read every workstation's local admin password. One phishing click would expose them all. Admin tasks should run from an account that does nothing else (*Run as different user*). Test: `nikos` is denied, `adm-nikos` succeeds.
 - [ ] LAPS-managed local admin account usable for sign-in (built-in Administrator is disabled on Windows 11)
 - [ ] BitLocker on WS01 with recovery keys escrowed to AD
 - [ ] Hybrid identity — Entra Connect, hybrid Entra join
