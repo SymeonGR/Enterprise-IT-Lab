@@ -19,7 +19,7 @@ Built from scratch on an Apple Silicon Mac using UTM, and documented step by ste
 | **Troubleshooting** | Every issue hit is documented with cause and fix ([troubleshooting.md](docs/troubleshooting.md)) |
 
 **Approach:** PowerShell-first. Everything from IP configuration to domain join and the Sales GPO was done in PowerShell.
-Two GPOs (logon banner, Remote Desktop) were built deliberately in the GPMC GUI, to practise both ways of working and to cover settings like Group Policy Preferences, which have no native PowerShell cmdlets.
+GPMC is used where it's the right tool: Group Policy Preferences and Security Options have no native PowerShell cmdlets, so the logon banner and Remote Desktop GPOs were built there.
 The *Method* column below shows which is which.
 
 ## Topology
