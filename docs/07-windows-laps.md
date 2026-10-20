@@ -109,9 +109,11 @@ Tested as `CORP\nikos` (standard user): LAPS tab shows the password. ✓
 
 Production note: admin tools usually live on a dedicated admin workstation or jump host, not on every helpdesk PC.
 
-## Open item
+## Open items
 
-LAPS manages the **built-in Administrator** (RID 500), which is **disabled** by default on Windows 11 — the password is stored and rotated, but can't be used to sign in yet. Next step: a dedicated local admin account managed by LAPS.
+**Admin rights on an everyday account.** `GG_LAPS_Readers` currently contains `GG_IT`, so `nikos` reads LAPS passwords with the same account he uses for email and browsing. A compromised daily account would expose every workstation's local admin password. Planned fix: a separate `adm-nikos` account in a dedicated `Admin Accounts` OU, with `GG_Helpdesk_Admins` replacing `GG_IT` in `GG_LAPS_Readers`.
+
+**Built-in Administrator is disabled.** LAPS manages the **built-in Administrator** (RID 500), which is **disabled** by default on Windows 11 — the password is stored and rotated, but can't be used to sign in yet. Next step: a dedicated local admin account managed by LAPS.
 
 ## What went wrong on the way
 
@@ -146,3 +148,4 @@ After adding `Domain Admins` to `GG_LAPS_Readers`, the Administrator still neede
 - LAPS needs two separate rights: **read** on the OU and **decrypt** via the GPO. One without the other fails.
 - Least privilege: helpdesk gets read access to workstation passwords only — not Domain Admin.
 - Always test as a non-admin member and as a non-member; testing as Domain Admin proves nothing.
+- Working is not the same as secure: the first version worked, but gave password access to everyday accounts.
