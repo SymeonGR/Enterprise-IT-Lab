@@ -41,6 +41,7 @@ The *Method* column below shows which is which.
 | 4 | GPO: logon banner (computer policy) | GPMC (GUI) | [04-gpo-logon-banner.md](docs/04-gpo-logon-banner.md) |
 | 5 | GPO: Control Panel lockdown, security-filtered to Sales (user policy) | PowerShell | [05-gpo-sales-restrictions.md](docs/05-gpo-sales-restrictions.md) |
 | 6 | GPO: RDP + firewall + local group membership via Preferences | GPMC (GUI) | [06-gpo-remote-desktop.md](docs/06-gpo-remote-desktop.md) |
+| 7 | Windows LAPS: encrypted, rotating local admin passwords in AD | PowerShell + GPMC | [07-windows-laps.md](docs/07-windows-laps.md) |
 | — | Problems hit and how they were solved | — | [troubleshooting.md](docs/troubleshooting.md) |
 
 Scripts used are in [`scripts/`](scripts/).
@@ -51,7 +52,8 @@ Scripts used are in [`scripts/`](scripts/).
 corp.internal
 └── LAB
     ├── Users          nikos, maria, giorgos
-    ├── Groups         GG_IT (nikos), GG_Sales (maria, giorgos)
+    ├── Groups         GG_IT (nikos), GG_Sales (maria, giorgos),
+    │                  GG_LAPS_Readers (GG_IT, Domain Admins)
     ├── Workstations   WS01   ← default location for new computers (redircmp)
     └── Servers
 ```
@@ -63,11 +65,13 @@ corp.internal
 | `WS - Logon Banner` | `OU=Workstations` | Computer | All workstations | Legal notice before logon |
 | `USR - Sales Restrictions` | `OU=Users` | User | `GG_Sales` only (security filtering) | Blocks Control Panel and Settings |
 | `WS - Remote Desktop` | `OU=Workstations` | Computer | All workstations | Enables RDP, opens firewall for the lab subnet, adds `GG_IT` to *Remote Desktop Users* |
+| `WS - LAPS` | `OU=Workstations` | Computer | All workstations | Local admin password backed up to AD, encrypted, 14 chars, 30-day rotation; decryptable by `GG_LAPS_Readers` |
 
 **Verified results**
 - Banner shown on WS01 after reboot.
 - `maria` (Sales): Control Panel blocked. `nikos` (IT): unaffected — `gpresult` shows the GPO as *filtered out, Denied (Security)*.
 - `nikos` can RDP to WS01; `maria` is denied.
+- LAPS: `nikos` and Domain Admins can read and decrypt WS01's password; `maria` gets nothing; `Reset-LapsPassword` rotates it.
 
 ## Key takeaways
 
@@ -76,10 +80,12 @@ corp.internal
 - Use GPP *Local Users and Groups* with **Update** to add members; Restricted Groups replaces membership and can wipe existing members fleet-wide.
 - Never type group names by hand in GPO editors — browse and resolve them, so they're bound to a SID.
 - Computer-side `gpresult` needs an elevated prompt; a standard user only sees user settings.
+- LAPS needs both **read** permission on the OU and **decrypt** rights; setting an authorized decryptor replaces Domain Admins rather than adding to them.
+- Group membership lives in the logon token: after a group change, sign out and back in.
 
 ## Roadmap
 
-- [ ] Windows LAPS — rotating local admin password stored in AD
+- [x] Windows LAPS — rotating local admin password stored in AD
 - [ ] BitLocker on WS01 with recovery keys escrowed to AD
 - [ ] Hybrid identity — Entra Connect, hybrid Entra join
 - [ ] Intune enrollment and co-management

@@ -43,6 +43,15 @@ Problems hit while building the lab, and how each was solved.
 - Fix: set client DNS to `192.168.64.10`, clear the cache, retry.
 - A reboot after `Add-Computer` doesn't prove the join worked — the rename alone also reboots. Verify with `PartOfDomain`.
 
+## Windows LAPS
+
+**`DecryptionStatus : Unauthorized` even as Domain Admin**
+- Cause: the authorized decryptor was set to a single group (`GG_IT`), which replaces Domain Admins; the decryptor is fixed at encryption time.
+- Fix: dedicated `GG_LAPS_Readers` group (GG_IT + Domain Admins), then `Reset-LapsPassword`. See [07](07-windows-laps.md).
+
+**Added to a group but still no access**
+- The logon token is stale. Sign out (not just close RDP) and sign back in, or `klist purge`.
+
 ## Group Policy
 
 See the "What went wrong" sections in [04](04-gpo-logon-banner.md), [05](05-gpo-sales-restrictions.md) and [06](06-gpo-remote-desktop.md).
