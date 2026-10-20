@@ -1,9 +1,10 @@
-# Active Directory Home Lab — `corp.internal`
+# Enterprise IT Lab — Windows endpoint management, on-prem to cloud
 
-A hands-on Active Directory lab built from scratch on an Apple Silicon Mac using UTM.
-The goal is to practise the day-to-day work of an endpoint / infrastructure engineer:
-building a domain, structuring it properly, joining clients, and delivering and troubleshooting Group Policy.
-The lab will later be extended into a hybrid setup (Entra ID, Intune).
+A hands-on lab for **endpoint / modern workplace engineering**: managing and securing Windows endpoints the way enterprises actually run them — starting from the on-prem foundation (Active Directory, Group Policy, Windows LAPS) and moving to cloud management (Entra ID, Intune, Autopilot).
+
+Built from scratch on an Apple Silicon Mac using UTM, and documented step by step, including what went wrong.
+
+**Why on-prem first:** most enterprises are hybrid. A clean move to Intune starts from a known, documented baseline — the Group Policy, LAPS and BitLocker configuration built here *is* that baseline, and Phase 4 migrates it to cloud management.
 
 **Approach:** PowerShell-first. Everything from IP configuration to domain join and the Sales GPO was done in PowerShell.
 Two GPOs (logon banner, Remote Desktop) were built deliberately in the GPMC GUI, to practise both ways of working and to cover settings like Group Policy Preferences, which have no native PowerShell cmdlets.
@@ -97,12 +98,27 @@ The lab is built the way a production domain should be, and gaps are fixed as th
 
 ## Roadmap
 
-- [x] Windows LAPS — rotating local admin password stored in AD
+**Phase 1 — On-prem foundation** ✅
+- [x] Domain controller, AD structure, Windows 11 client domain join
+- [x] Group Policy: computer and user policies, security filtering, Preferences
+- [x] Windows LAPS — unique, encrypted, rotating local admin passwords in AD
+
+**Phase 2 — Endpoint security hardening**
 - [ ] **Separate admin accounts for IT** — `OU=Admin Accounts`, `adm-nikos`, `GG_Helpdesk_Admins` replacing `GG_IT` in `GG_LAPS_Readers` and the RDP GPO.
   *Why:* today the same account that reads email and browses the web can read every workstation's local admin password. One phishing click would expose them all. Admin tasks should run from an account that does nothing else (*Run as different user*). Test: `nikos` is denied, `adm-nikos` succeeds.
 - [ ] LAPS-managed local admin account usable for sign-in (built-in Administrator is disabled on Windows 11)
 - [ ] BitLocker on WS01 with recovery keys escrowed to AD
-- [ ] Hybrid identity — Entra Connect, hybrid Entra join
+
+**Phase 3 — Hybrid identity**
+- [ ] Entra Connect sync, hybrid Entra join
+
+**Phase 4 — Cloud endpoint management**
 - [ ] Intune enrollment and co-management
+- [ ] Windows Autopilot
+- [ ] Compliance policies and Conditional Access for devices
+- [ ] Win32 app packaging and deployment
+- [ ] Migrate the lab's GPOs, LAPS and BitLocker settings to Intune (Settings Catalog / endpoint security policies)
+
+**Infrastructure**
 - [ ] AD Certificate Services (PKI)
 - [ ] Move DC to native x86 hardware or Azure (x86 emulation on Apple Silicon is very slow)
