@@ -42,11 +42,11 @@ From macOS (Windows App) to WS01:
 - `CORP\nikos` → connects
 - `CORP\maria` → denied
 
-## What went wrong on the way
+## Issues and resolutions
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `gpresult` showed the GPO as **Not Applied (Empty)** | Computer side of the GPO had no saved settings yet | Checked *Settings → show all* and *Details → Computer version*; completed the settings and clicked **OK** (Cancel/X discards) |
-| Group name `remote`, member `GG_IT` with empty SID | Names typed by hand | Picked the built-in group from the dropdown; re-added the member via browse so it resolved to `CORP\GG_IT` with a SID |
+| `gpresult`: **Not Applied (Empty)** | Computer side of the GPO had no saved settings (version 0) | Confirmed via *Settings → show all* and *Details → Computer version*; completed and saved the settings |
+| Preference item with no SID on the member | Group and member entered as free text | Selected the built-in group from the list and resolved the member to `CORP\GG_IT` (SID bound) |
 
-Lesson: in GPO editors never type names by hand. With *Update*, a mistyped group name silently **creates a new local group** on every machine.
+With *Update*, an unresolved local group name creates a **new local group** on every targeted machine — caught at review, before it reached clients.

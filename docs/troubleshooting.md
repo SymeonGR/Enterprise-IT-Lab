@@ -7,11 +7,9 @@ Problems hit while building the lab, and how each was solved.
 **Server display went black after installing UTM guest tools**
 - Cause: SPICE / QXL display driver on Windows Server (x86, emulated).
 - Workaround: stopped relying on the UTM console and managed the server over RDP instead. Options if the console is needed: a simpler emulated display card (`VGA` / `bochs-display`, no GPU acceleration) and removing the guest display driver.
-- Lesson: avoid guest display drivers on the emulated server; manage it over RDP instead.
 
-**Copy/paste between macOS and VMs**
-- Instead of the UTM console and its drivers, both VMs are managed via **RDP** (Windows App) with *Devices & Audio → Clipboard* enabled.
-- Long pasted commands sometimes got truncated — keep one command per line, or save them as a `.ps1` and run it.
+**Clipboard between macOS and VMs**
+- Both VMs are managed over **RDP** (Windows App) with clipboard redirection, avoiding UTM guest drivers entirely. Longer pasted commands can truncate over RDP; multi-line scripts are more reliable as `.ps1` files.
 
 **VM had an IP but no internet**
 - Ruled out a subnet clash between the home LAN and the UTM network (`192.168.64.x`).
@@ -31,9 +29,6 @@ Problems hit while building the lab, and how each was solved.
 
 **`dcdiag` fails DFSREvent and SystemLog on a new DC**
 - Those tests count recent event-log errors; not a functional failure.
-
-**Output of the last command missing when copying from the console**
-- Press Enter once after the output so a fresh prompt appears, then copy.
 
 ## Domain join
 
@@ -60,7 +55,7 @@ Problems hit while building the lab, and how each was solved.
 
 ## Group Policy
 
-See the "What went wrong" sections in [04](04-gpo-logon-banner.md), [05](05-gpo-sales-restrictions.md) and [06](06-gpo-remote-desktop.md).
+See the "Issues and resolutions" sections in [04](04-gpo-logon-banner.md), [05](05-gpo-sales-restrictions.md) and [06](06-gpo-remote-desktop.md).
 
 Quick checklist when a GPO "doesn't apply":
 1. Is the object (user or computer) in the OU the GPO is linked to?

@@ -2,7 +2,7 @@
 
 A hands-on lab for **endpoint / modern workplace engineering**: managing and securing Windows endpoints the way enterprises actually run them — starting from the on-prem foundation (Active Directory, Group Policy, Windows LAPS) and moving to cloud management (Entra ID, Intune, Autopilot).
 
-Built from scratch on an Apple Silicon Mac using UTM, and documented step by step, including what went wrong.
+Built from scratch on an Apple Silicon Mac using UTM, and documented step by step, including issues hit and how they were resolved.
 
 **Why on-prem first:** most enterprises are hybrid. A clean move to Intune starts from a known, documented baseline — the Group Policy, LAPS and BitLocker configuration built here *is* that baseline, and Phase 4 migrates it to cloud management.
 
@@ -98,15 +98,13 @@ The lab follows production practice as closely as a two-VM setup allows. Gaps ar
 - **Verify by testing as the wrong user** — every control is tested as an allowed non-admin user *and* as a user who should be denied.
 - **No secrets in the repo** — scripts prompt for passwords at run time; documentation shows status output, never password values.
 
-## Key takeaways
+## Design decisions and gotchas
 
-- Computer policies must be linked to the OU where the **computer** object lives; user policies to where the **user** lives.
-- Since MS16-072, user GPOs are read in the computer's context: when security-filtering, keep *Authenticated Users* with **Read** (but not Apply), or the GPO applies to nobody.
-- Use GPP *Local Users and Groups* with **Update** to add members; Restricted Groups replaces membership and can wipe existing members fleet-wide.
-- Never type group names by hand in GPO editors — browse and resolve them, so they're bound to a SID.
-- Computer-side `gpresult` needs an elevated prompt; a standard user only sees user settings.
-- LAPS needs both **read** permission on the OU and **decrypt** rights; setting an authorized decryptor replaces Domain Admins rather than adding to them.
-- Group membership lives in the logon token: after a group change, sign out and back in.
+- **Security filtering after MS16-072** — user GPOs are read in the computer's context, so the filtered GPO keeps *Authenticated Users* with **Read** (not Apply). Remove it and the GPO silently applies to nobody.
+- **GPP *Update* over Restricted Groups** — Restricted Groups replaces local group membership and can wipe existing members fleet-wide; GPP *Update* only adds.
+- **SID-resolved names in GPP** — a typed group name isn't bound to a SID, and with *Update* a mistyped local group name creates a new group on every machine.
+- **LAPS decryptor scope** — the authorized decryptor replaces Domain Admins rather than adding to them, and is fixed at encryption time. A dedicated group containing both IT and Domain Admins avoids locking out recovery.
+- **Read vs decrypt** — LAPS needs both OU read permission and decrypt rights; delegating one without the other fails.
 
 ## Roadmap
 

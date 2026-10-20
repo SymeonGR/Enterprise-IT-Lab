@@ -115,7 +115,7 @@ Production note: admin tools usually live on a dedicated admin workstation or ju
 
 **Built-in Administrator is disabled.** LAPS manages the **built-in Administrator** (RID 500), which is **disabled** by default on Windows 11 — the password is stored and rotated, but can't be used to sign in yet. Next step: a dedicated local admin account managed by LAPS.
 
-## What went wrong on the way
+## Issues and resolutions
 
 **Domain Admins locked out of the password**
 
@@ -137,13 +137,13 @@ Fix: dedicated `GG_LAPS_Readers` group containing `GG_IT` and `Domain Admins`, u
 
 **`Get-WindowsCapability`: "The requested operation requires elevation"**
 
-The prompt was opened with *Run as different user* as `CORP\Administrator`. That gives a different user, **not** an elevated token — UAC still filters it. Fix: `Start-Process powershell -Verb RunAs` and confirm the UAC prompt; the title bar then shows *Administrator:*.
+*Run as different user* gives another identity, **not** an elevated token — UAC still filters it. Elevate with `Start-Process powershell -Verb RunAs`; the title bar then shows *Administrator:*.
 
 **Group change not taking effect**
 
 After adding `Domain Admins` to `GG_LAPS_Readers`, the Administrator still needed a **sign-out and sign-in**: group membership is read into the logon token. Closing the RDP window only disconnects the session and keeps the old token — use *Sign out*. (`klist purge` refreshes Kerberos tickets as an alternative.)
 
-## Key takeaways
+## Design notes
 
 - LAPS needs two separate rights: **read** on the OU and **decrypt** via the GPO. One without the other fails.
 - Least privilege: helpdesk gets read access to workstation passwords only — not Domain Admin.
