@@ -28,8 +28,8 @@ gpresult /r /scope computer
 `WS - Logon Banner` appears under *Applied Group Policy Objects*.
 Restart, then the banner appears before the logon screen.
 
-## Lessons
+## Notes
 
-- A computer policy is linked to the OU containing the **computer** object. Linking it to a user OU is a common reason a policy "doesn't work".
-- As a standard user, `gpresult /r /scope computer` returns **Access denied**, and plain `gpresult /r` only shows user settings. Computer policies are always checked elevated.
-- Some security settings only take effect at boot — a restart was needed for the banner to show.
+- Linked to the OU holding the **computer** objects; a computer policy linked to a user OU never applies.
+- Computer-side results need an elevated `gpresult` — a standard user only sees user settings.
+- The banner is a Security Option applied at boot, so verification needs a restart, not just `gpupdate`.

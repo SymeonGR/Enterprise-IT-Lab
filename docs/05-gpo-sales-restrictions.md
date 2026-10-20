@@ -51,6 +51,8 @@ GUI equivalent: remove *Authenticated Users* from Security Filtering, then add i
 
 If a user was hit before filtering was fixed: `gpupdate /force`, sign out, sign in.
 
-## What went wrong on the way
+## Issues and resolutions
 
-The second `Set-GPPermission` didn't take effect (pasted command didn't run), so *Authenticated Users* still had **Apply** and the GPO hit everyone. Caught by checking *Security Filtering* in GPMC and fixed via the GUI. Lesson: always verify with `Get-GPPermission` or GPMC after scripting permissions.
+| Symptom | Cause | Fix | Prevention |
+|---|---|---|---|
+| GPO applied to all users, not only Sales | The `-Replace` call removing *Apply* from *Authenticated Users* never executed | Corrected in GPMC: *Authenticated Users* moved from Security Filtering to Delegation with **Read** | Verify scripted permission changes with `Get-GPPermission -All` before testing on clients |
