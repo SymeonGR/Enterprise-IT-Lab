@@ -2,9 +2,9 @@ name: PowerShell lint
 
 on:
   push:
-    paths: ['scripts/**', 'PSScriptAnalyzerSettings.psd1', '.github/workflows/lint.yml']
+    paths: ['scripts/**', 'config/**', 'PSScriptAnalyzerSettings.psd1', '.github/workflows/lint.yml']
   pull_request:
-    paths: ['scripts/**', 'PSScriptAnalyzerSettings.psd1', '.github/workflows/lint.yml']
+    paths: ['scripts/**', 'config/**', 'PSScriptAnalyzerSettings.psd1', '.github/workflows/lint.yml']
 
 permissions:
   contents: read
@@ -21,3 +21,12 @@ jobs:
           $results = Invoke-ScriptAnalyzer -Path ./scripts -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
           $results | Format-Table RuleName, Severity, ScriptName, Line, Message -AutoSize -Wrap
           if ($results) { throw "$($results.Count) PSScriptAnalyzer finding(s)" }
+      - name: Validate configuration files
+        shell: pwsh
+        run: |
+          Import-Module ./scripts/LabConfig.psm1 -Force
+          $sections = 'Domain', 'DomainController', 'Client', 'OUs', 'Groups', 'SalesRestrictionsGpo', 'Laps'
+          Get-ChildItem ./config/*.psd1 | ForEach-Object {
+            Import-LabConfig -Path $_.FullName -Required $sections | Out-Null
+            "OK  $($_.Name)"
+          }

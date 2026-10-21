@@ -12,11 +12,30 @@ PowerShell used to build the lab. Each script matches a doc in [`docs/`](../docs
 
 Steps 04 and 06 use Security Options and Group Policy Preferences, which have no native PowerShell cmdlets; they are built in GPMC.
 
+## Configuration
+
+Nothing environment-specific is hard-coded. Domain name, IP addresses, OU names, groups, users and GPO names come from a configuration file:
+
+| File | Purpose |
+|---|---|
+| [`config/lab.psd1`](../config/lab.psd1) | This lab (`corp.internal`) — the default |
+| [`config/example.psd1`](../config/example.psd1) | Template with neutral values for another environment |
+
+To use the scripts elsewhere, copy the template to `config/<name>.local.psd1` (ignored by git), adjust the values, and pass it:
+
+```powershell
+.\02-ad-structure.ps1 -ConfigPath ..\config\my-env.local.psd1 -WhatIf
+```
+
+Scripts that change AD check that the current domain matches the configuration and stop if it doesn't, so a config can't be applied to the wrong domain by accident.
+
+Secrets are never stored in configuration. Passwords and credentials can be passed as `SecureString` / `PSCredential` parameters (`-UserPassword`, `-DsrmPassword`, `-Credential`) for unattended runs, or are prompted for only when actually needed.
+
 ## Conventions
 
+- **Config-driven** — one set of scripts, one configuration file per environment.
 - **Idempotent** — each script checks current state and only changes what is missing, so re-running it is safe.
 - **`-WhatIf` / `-Confirm`** — every change goes through `ShouldProcess`; preview first with `-WhatIf`.
-- **Parameters with lab defaults** — names, OUs and addresses are parameters, not hard-coded values.
-- **No secrets** — passwords are prompted as `SecureString` at run time and never stored.
+- **Interactive or unattended** — prompts only for missing secrets; everything can be supplied as parameters.
 - **Comment-based help** — `Get-Help .\02-ad-structure.ps1 -Full`.
-- **Linted** — [PSScriptAnalyzer](../PSScriptAnalyzerSettings.psd1) runs on every change via GitHub Actions.
+- **Linted and validated** — PSScriptAnalyzer and a configuration check run on every change via GitHub Actions.
