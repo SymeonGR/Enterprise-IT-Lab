@@ -1,11 +1,12 @@
 # Keep secrets and local junk out of the repo
 *.txt
+*.log
+*password*
 secrets*
 *.key
 *.pfx
 *.utm
 .DS_Store
-site/
 
 # Local environment configs (copy config/example.psd1 to <name>.local.psd1)
 config/*.local.psd1

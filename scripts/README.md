@@ -9,8 +9,10 @@ PowerShell used to build the lab. Each script matches a doc in [`docs/`](../docs
 | `03-client-join.ps1` | DNS, pre-flight checks, domain join | WS01 |
 | `05-gpo-sales-restrictions.ps1` | Sales GPO with security filtering | DC01 |
 | `07-windows-laps.ps1` | LAPS schema, reader group, OU permissions | DC01 |
+| `08-least-privilege.ps1` | Delegated join account, machine account quota, AGDLP reader group, `WS - LAPS` values | DC01 |
+| `export-gpos.ps1` | XML/HTML reports and backups of every lab GPO into [`gpo/`](../gpo/) | DC01 |
 
-Steps 04 and 06 use Security Options and Group Policy Preferences, which have no native PowerShell cmdlets; they are built in GPMC.
+Steps 04 and 06 were built in GPMC. Only the Group Policy Preferences item in 06 (local group membership) has no PowerShell equivalent; the other settings are registry-backed and could be set with `Set-GPRegistryValue`, as step 08 does for LAPS. `export-gpos.ps1` records what the GPMC-built GPOs contain.
 
 ## Configuration
 

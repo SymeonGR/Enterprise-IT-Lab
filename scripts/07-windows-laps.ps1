@@ -8,7 +8,7 @@
     - Creates the reader group and adds the members that need password access
     - Lets computers in the target OU write their own password
     - Grants the reader group read access on that OU only
-    The LAPS GPO itself is configured in GPMC (see docs/07-windows-laps.md).
+    The LAPS GPO was built in GPMC (see docs/07-windows-laps.md); step 08 sets its values by script.
 
 .PARAMETER ConfigPath
     Environment configuration file. Defaults to config/lab.psd1.
@@ -32,6 +32,19 @@ $targetOU = Get-LabOUPath -Config $config -DomainDN $domain.DistinguishedName -N
 $groupsOU = Get-LabOUPath -Config $config -DomainDN $domain.DistinguishedName -Name $config.OUs.Groups
 $readerGroup = $laps.ReaderGroup
 
+# Password encryption needs domain functional level 2016 or later
+if ($domain.DomainMode -lt [Microsoft.ActiveDirectory.Management.ADDomainMode]::Windows2016Domain) {
+    throw "Domain functional level is $($domain.DomainMode); LAPS password encryption needs Windows2016Domain or later."
+}
+
+# A lab built before AGDLP still has the Global group: step 08 converts it in place (same SID).
+# Creating ReaderGroup next to it would leave two groups and break that conversion.
+if ($laps.LegacyReaderGroup -and
+    (Get-ADGroup -Filter "Name -eq '$($laps.LegacyReaderGroup)'") -and
+    -not (Get-ADGroup -Filter "Name -eq '$readerGroup'")) {
+    throw "$($laps.LegacyReaderGroup) still exists. Run 08-least-privilege.ps1 to convert it to $readerGroup first."
+}
+
 # Schema: present once the msLAPS-Password attribute exists
 $schemaNC = (Get-ADRootDSE).schemaNamingContext
 if (Get-ADObject -SearchBase $schemaNC -Filter "lDAPDisplayName -eq 'msLAPS-Password'") {
@@ -43,8 +56,8 @@ elseif ($PSCmdlet.ShouldProcess('AD schema', 'Extend for Windows LAPS (irreversi
 
 # Reader group and membership
 $exists = [bool](Get-ADGroup -Filter "Name -eq '$readerGroup'")
-if (-not $exists -and $PSCmdlet.ShouldProcess($readerGroup, "Create global group in $groupsOU")) {
-    New-ADGroup -Name $readerGroup -GroupScope Global -Path $groupsOU
+if (-not $exists -and $PSCmdlet.ShouldProcess($readerGroup, "Create domain local group in $groupsOU")) {
+    New-ADGroup -Name $readerGroup -GroupScope DomainLocal -GroupCategory Security -Path $groupsOU
     $exists = $true
 }
 $current = @()

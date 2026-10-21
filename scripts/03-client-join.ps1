@@ -14,7 +14,8 @@
     Overrides Client.ComputerName, e.g. when joining a second workstation.
 
 .PARAMETER Credential
-    Account allowed to join computers to the domain. Prompted if omitted.
+    Account allowed to join computers to the domain. Prompted if omitted, pre-filled with
+    Client.JoinAccount (the delegated account from step 08) when the configuration sets it.
 
 .EXAMPLE
     .\03-client-join.ps1 -WhatIf
@@ -64,7 +65,11 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 if ($PSCmdlet.ShouldProcess($env:COMPUTERNAME, "Join $domainName as $($client.ComputerName) and restart")) {
-    if (-not $Credential) { $Credential = Get-Credential -Message "Account allowed to join computers to $domainName" }
+    if (-not $Credential) {
+        $prompt = @{ Message = "Account allowed to join computers to $domainName" }
+        if ($client.JoinAccount) { $prompt.UserName = $client.JoinAccount }
+        $Credential = Get-Credential @prompt
+    }
     $joinParams = @{ DomainName = $domainName; Credential = $Credential; Restart = $true }
     if ($env:COMPUTERNAME -ne $client.ComputerName) { $joinParams.NewName = $client.ComputerName }
     Add-Computer @joinParams

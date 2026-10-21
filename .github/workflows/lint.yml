@@ -25,7 +25,7 @@ jobs:
         shell: pwsh
         run: |
           Import-Module ./scripts/LabConfig.psm1 -Force
-          $sections = 'Domain', 'DomainController', 'Client', 'OUs', 'Groups', 'SalesRestrictionsGpo', 'Laps'
+          $sections = 'Domain', 'DomainController', 'Client', 'OUs', 'Groups', 'SalesRestrictionsGpo', 'Laps', 'JoinDelegation'
           Get-ChildItem ./config/*.psd1 | ForEach-Object {
             Import-LabConfig -Path $_.FullName -Required $sections | Out-Null
             "OK  $($_.Name)"
