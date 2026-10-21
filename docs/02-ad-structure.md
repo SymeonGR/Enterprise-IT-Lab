@@ -1,5 +1,7 @@
 # 02 — AD Structure: OUs, users, groups
 
+Script: [`scripts/02-ad-structure.ps1`](../scripts/02-ad-structure.ps1) — skips objects that already exist, so it can be re-run against the lab.
+
 Real environments don't leave objects in the default `Users` / `Computers` containers — GPOs can't be linked to containers, only to OUs.
 
 ## OUs
@@ -30,6 +32,8 @@ $pw = Read-Host "Password for lab users" -AsSecureString
 ```
 
 The password must meet the default complexity policy (8+ characters, mixed case, digit or symbol).
+
+No `-ChangePasswordAtLogon`: the test users sign in over RDP with Network Level Authentication, which can't change an expired password, so a forced change would lock them out of RDP. In production, new accounts get a unique initial password and must change it at first sign-in.
 
 ## Groups
 

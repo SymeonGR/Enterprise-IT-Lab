@@ -12,6 +12,8 @@ Every workstation's built-in local Administrator gets a unique, random password 
 | Who can read/decrypt | `GG_LAPS_Readers` (contains `GG_IT` and `Domain Admins`) |
 | Method | PowerShell (schema, permissions, group) + GPMC (policy) |
 
+Script: [`scripts/07-windows-laps.ps1`](../scripts/07-windows-laps.ps1). Hardened in [step 08](08-least-privilege.md): `DL_LAPS_Readers`, 20 characters, a usable managed account.
+
 ## 1. Prerequisites
 
 Windows LAPS is built into up-to-date Windows Server and Windows 11. Check on both DC01 and WS01:
@@ -22,6 +24,12 @@ Get-Command -Module LAPS | Select-Object -First 5 Name
 ```
 
 If the LAPS cmdlets are listed, no install is needed. If not, the OS needs updating.
+
+Password **encryption** also needs domain functional level 2016 or later:
+
+```powershell
+(Get-ADDomain).DomainMode   # Windows2016Domain or later
+```
 
 ## 2. Extend the AD schema
 
@@ -111,9 +119,9 @@ Production note: admin tools usually live on a dedicated admin workstation or ju
 
 ## Open items
 
-**Admin rights on an everyday account.** `GG_LAPS_Readers` currently contains `GG_IT`, so `nikos` reads LAPS passwords with the same account he uses for email and browsing. A compromised daily account would expose every workstation's local admin password. Planned fix: a separate `adm-nikos` account in a dedicated `Admin Accounts` OU, with `GG_Helpdesk_Admins` replacing `GG_IT` in `GG_LAPS_Readers`.
+**Admin rights on an everyday account.** `GG_LAPS_Readers` currently contains `GG_IT`, so `nikos` reads LAPS passwords with the same account he uses for email and browsing. A compromised daily account would expose every workstation's local admin password. Planned fix: a separate `adm-nikos` account in a dedicated `Admin Accounts` OU, with `GG_Helpdesk_Admins` replacing `GG_IT` in the reader group.
 
-**Built-in Administrator is disabled.** LAPS manages the **built-in Administrator** (RID 500), which is **disabled** by default on Windows 11 — the password is stored and rotated, but can't be used to sign in yet. Next step: a dedicated local admin account managed by LAPS.
+**Built-in Administrator is disabled.** LAPS manages the **built-in Administrator** (RID 500), which is **disabled** by default on Windows 11 — the password is stored and rotated, but can't be used to sign in yet. Scripted in [step 08](08-least-privilege.md): LAPS automatic account management creates and manages an enabled `lapsadmin` account.
 
 ## Issues and resolutions
 

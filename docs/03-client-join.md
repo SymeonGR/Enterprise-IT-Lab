@@ -1,5 +1,7 @@
 # 03 — Windows 11 client (WS01) and domain join
 
+Script: [`scripts/03-client-join.ps1`](../scripts/03-client-join.ps1) — stops before joining if a pre-flight check fails.
+
 ## Build the VM
 
 - ISO downloaded with **CrystalFetch** (official Microsoft media): Windows 11, **ARM64**, **Pro**.
@@ -28,6 +30,8 @@ nltest /dsgetdc:corp.internal      # should return DC: \\DC01.corp.internal
 ```powershell
 Add-Computer -DomainName "corp.internal" -NewName "WS01" -Credential CORP\Administrator -Restart
 ```
+
+WS01 was joined with `CORP\Administrator`. That's more privilege than a join needs; [step 08](08-least-privilege.md) adds a delegated `svc-domainjoin` account, which the script uses by default (`-JoinAccount`).
 
 ## Verify
 
