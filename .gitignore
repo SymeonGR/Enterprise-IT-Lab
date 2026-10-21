@@ -6,3 +6,6 @@ secrets*
 *.utm
 .DS_Store
 site/
+
+# Local environment configs (copy config/example.psd1 to <name>.local.psd1)
+config/*.local.psd1

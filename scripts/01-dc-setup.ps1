@@ -1,18 +1,96 @@
-# DC01 setup: static IP, rename, AD DS forest, DNS forwarder
-# Run in an elevated PowerShell on the server. The rename and the promotion both reboot,
-# so run each block separately.
+<#
+.SYNOPSIS
+    Builds the first domain controller: static IP and hostname, AD DS forest with DNS, DNS forwarder.
 
-# --- Block 1: network + rename ---
-New-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress 192.168.64.10 -PrefixLength 24 -DefaultGateway 192.168.64.1
-Set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses 192.168.64.1
-Rename-Computer -NewName "DC01" -Restart
+.DESCRIPTION
+    Values come from the configuration file (Domain and DomainController sections).
+    Runs in three stages because the rename and the forest promotion each reboot the server.
+    Every stage checks the current state first and only changes what is missing.
 
-# --- Block 2: AD DS (take a VM backup first) ---
-Install-WindowsFeature AD-Domain-Services -IncludeManagementTools
-Install-ADDSForest -DomainName "corp.internal" -DomainNetbiosName "CORP" -InstallDns
+.PARAMETER Stage
+    Network : static IP, DNS client and hostname (reboots if the name changes)
+    Forest  : installs AD DS and promotes the server to a new forest (reboots)
+    Post    : adds the DNS forwarder and shows the DC service status
 
-# --- Block 3: after reboot, sign in as CORP\Administrator ---
-Add-DnsServerForwarder -IPAddress 192.168.64.1
-Get-ADDomain | Select-Object DNSRoot, NetBIOSName
-Get-Service adws, kdc, netlogon, dns | Select-Object Name, Status
-Resolve-DnsName microsoft.com
+.PARAMETER ConfigPath
+    Environment configuration file. Defaults to config/lab.psd1.
+
+.PARAMETER DsrmPassword
+    Directory Services Restore Mode password for the Forest stage. Prompted if omitted.
+
+.EXAMPLE
+    .\01-dc-setup.ps1 -Stage Network -WhatIf
+
+.EXAMPLE
+    .\01-dc-setup.ps1 -Stage Forest -ConfigPath ..\config\my-env.psd1
+#>
+#Requires -RunAsAdministrator
+[CmdletBinding(SupportsShouldProcess)]
+param(
+    [Parameter(Mandatory)]
+    [ValidateSet('Network', 'Forest', 'Post')]
+    [string]$Stage,
+
+    [string]$ConfigPath = (Join-Path $PSScriptRoot '..\config\lab.psd1'),
+
+    [securestring]$DsrmPassword
+)
+
+$ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'LabConfig.psm1') -Force
+
+$config = Import-LabConfig -Path $ConfigPath -Required Domain, DomainController
+$dc = $config.DomainController
+
+switch ($Stage) {
+    'Network' {
+        $existing = Get-NetIPAddress -InterfaceAlias $dc.InterfaceAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+            Where-Object IPAddress -eq $dc.IPAddress
+        if ($existing) {
+            Write-Verbose "IP $($dc.IPAddress) already set on $($dc.InterfaceAlias)."
+        }
+        elseif ($PSCmdlet.ShouldProcess($dc.InterfaceAlias, "Set static IP $($dc.IPAddress)/$($dc.PrefixLength), gateway $($dc.Gateway)")) {
+            New-NetIPAddress -InterfaceAlias $dc.InterfaceAlias -IPAddress $dc.IPAddress `
+                -PrefixLength $dc.PrefixLength -DefaultGateway $dc.Gateway | Out-Null
+            # Temporary DNS until the server hosts its own zone
+            Set-DnsClientServerAddress -InterfaceAlias $dc.InterfaceAlias -ServerAddresses $dc.Gateway
+        }
+
+        if ($env:COMPUTERNAME -ne $dc.ComputerName -and
+            $PSCmdlet.ShouldProcess($env:COMPUTERNAME, "Rename to $($dc.ComputerName) and restart")) {
+            Rename-Computer -NewName $dc.ComputerName -Restart
+        }
+    }
+
+    'Forest' {
+        # DomainRole 4/5 = backup/primary domain controller
+        if ((Get-CimInstance Win32_ComputerSystem).DomainRole -ge 4) {
+            Write-Output 'Server is already a domain controller. Nothing to do.'
+            return
+        }
+        if ((Get-WindowsFeature AD-Domain-Services).InstallState -ne 'Installed' -and
+            $PSCmdlet.ShouldProcess('AD-Domain-Services', 'Install Windows feature')) {
+            Install-WindowsFeature AD-Domain-Services -IncludeManagementTools | Out-Null
+        }
+        if ($PSCmdlet.ShouldProcess($config.Domain.Name, 'Create new forest with DNS (server will restart)')) {
+            if (-not $DsrmPassword) {
+                $DsrmPassword = Read-Host 'DSRM (Safe Mode Administrator) password' -AsSecureString
+            }
+            Install-ADDSForest -DomainName $config.Domain.Name -DomainNetbiosName $config.Domain.NetBIOS `
+                -InstallDns -SafeModeAdministratorPassword $DsrmPassword -Force
+        }
+    }
+
+    'Post' {
+        $forwarders = @((Get-DnsServerForwarder).IPAddress | ForEach-Object { $_.IPAddressToString })
+        if ($forwarders -contains $dc.DnsForwarder) {
+            Write-Verbose "Forwarder $($dc.DnsForwarder) already configured."
+        }
+        elseif ($PSCmdlet.ShouldProcess('DNS Server', "Add forwarder $($dc.DnsForwarder)")) {
+            Add-DnsServerForwarder -IPAddress $dc.DnsForwarder
+        }
+
+        Get-ADDomain | Select-Object DNSRoot, NetBIOSName
+        Get-Service ADWS, KDC, Netlogon, DNS | Select-Object Name, Status
+    }
+}
