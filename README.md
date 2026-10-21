@@ -157,3 +157,7 @@ Deliberate simplifications compared with a production domain:
 **Infrastructure**
 - [ ] AD Certificate Services (PKI)
 - [ ] Move DC to native x86 hardware or Azure (x86 emulation on Apple Silicon is very slow)
+
+## License
+
+[MIT](LICENSE). The scripts are provided as-is for lab and test environments — review and run with `-WhatIf` before using them anywhere else.
