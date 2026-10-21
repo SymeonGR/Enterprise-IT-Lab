@@ -98,6 +98,31 @@ The lab follows production practice as closely as a two-VM setup allows. Gaps ar
 - **Verify by testing as the wrong user** — every control is tested as an allowed non-admin user *and* as a user who should be denied.
 - **No secrets in the repo** — scripts prompt for passwords at run time; documentation shows status output, never password values.
 
+## Naming conventions
+
+| Object | Convention | Examples |
+|---|---|---|
+| Servers / workstations | Role + number | `DC01`, `WS01` |
+| OUs | One lab root, split by object type, so GPOs can target computers and users separately | `LAB/Users`, `LAB/Workstations` |
+| Groups | `GG_` = global security group, named by purpose, not by person | `GG_IT`, `GG_Sales`, `GG_LAPS_Readers` |
+| GPOs | Prefix shows the scope: `WS -` computer policy for workstations, `USR -` user policy | `WS - LAPS`, `USR - Sales Restrictions` |
+| Admin accounts *(planned)* | `adm-` + username, kept in a separate OU | `adm-nikos` |
+| Domain | `.internal`, reserved for private use (`.local` clashes with mDNS) | `corp.internal` |
+
+## Lab limitations
+
+Deliberate simplifications compared with a production domain:
+
+| In this lab | In production |
+|---|---|
+| One domain controller | At least two DCs for redundancy and replication; FSMO roles planned |
+| No AD backup | Regular system-state backups and a tested forest recovery plan |
+| One flat subnet | Segmented networks; DCs and admin access restricted by firewall |
+| Admin rights on everyday accounts *(being fixed — see roadmap)* | Separate admin accounts and tiered administration |
+| No central logging or monitoring | Event forwarding / SIEM, alerting on privileged changes |
+| No PKI, no patch management | AD CS for certificates; WSUS, ConfigMgr or Intune for updates |
+| DC runs under x86 emulation | Native hardware or cloud VMs, so timings here aren't representative |
+
 ## Design decisions and gotchas
 
 - **Security filtering after MS16-072** — user GPOs are read in the computer's context, so the filtered GPO keeps *Authenticated Users* with **Read** (not Apply). Remove it and the GPO silently applies to nobody.
