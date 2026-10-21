@@ -1,5 +1,7 @@
 # Enterprise IT Lab — Windows endpoint management, on-prem to cloud
 
+[![PowerShell lint](https://github.com/Symeonfokas/Enterprise-IT-Lab/actions/workflows/lint.yml/badge.svg)](.github/workflows/lint.yml)
+
 A hands-on lab for **endpoint / modern workplace engineering**: managing and securing Windows endpoints the way enterprises actually run them — starting from the on-prem foundation (Active Directory, Group Policy, Windows LAPS) and moving to cloud management (Entra ID, Intune, Autopilot).
 
 Built from scratch on an Apple Silicon Mac using UTM, and documented step by step, including issues hit and how they were resolved.
@@ -18,9 +20,9 @@ Built from scratch on an Apple Silicon Mac using UTM, and documented step by ste
 | **PowerShell** | Config-driven, idempotent build scripts reusable in any domain: `-WhatIf`, comment-based help, wrong-domain guard, linted in CI ([`scripts/`](scripts/)) |
 | **Troubleshooting** | Every issue hit is documented with cause and fix ([troubleshooting.md](docs/troubleshooting.md)) |
 
-**Approach:** PowerShell-first. Everything from IP configuration to domain join and the Sales GPO was done in PowerShell.
-GPMC is used where it's the right tool: Group Policy Preferences and Security Options have no native PowerShell cmdlets, so the logon banner and Remote Desktop GPOs were built there.
-The *Method* column below shows which is which.
+**Approach:** PowerShell-first. Every script reads its values from [`config/`](config/), supports `-WhatIf`, stops on the first error, and skips what's already done, so it can be re-run against the live lab.
+The logon banner, Remote Desktop and LAPS GPOs were built in GPMC. Only one setting among them has no PowerShell equivalent — the Group Policy Preferences local-group item; the rest are registry-backed, and [step 08](docs/08-least-privilege.md) sets the LAPS policy with `Set-GPRegistryValue`.
+GPMC-built settings are exported to [`gpo/`](gpo/) so they can be reviewed without the lab. The *Method* column below shows which is which.
 
 ## Topology
 
@@ -55,19 +57,21 @@ The *Method* column below shows which is which.
 | 5 | GPO: Control Panel lockdown, security-filtered to Sales (user policy) | PowerShell | [05-gpo-sales-restrictions.md](docs/05-gpo-sales-restrictions.md) |
 | 6 | GPO: RDP + firewall + local group membership via Preferences | GPMC (GUI) | [06-gpo-remote-desktop.md](docs/06-gpo-remote-desktop.md) |
 | 7 | Windows LAPS: encrypted, rotating local admin passwords in AD | PowerShell + GPMC | [07-windows-laps.md](docs/07-windows-laps.md) |
+| 8 | Delegated domain join, AGDLP, LAPS hardening *(scripted, not yet run)* | PowerShell | [08-least-privilege.md](docs/08-least-privilege.md) |
 | — | Problems hit and how they were solved | — | [troubleshooting.md](docs/troubleshooting.md) |
 
-Scripts used are in [`scripts/`](scripts/).
+Scripts are in [`scripts/`](scripts/) — run any of them with `-WhatIf` first. GPO exports: [`gpo/`](gpo/) via `scripts/export-gpos.ps1`.
 
 ## AD layout
 
 ```
 corp.internal
 └── LAB
-    ├── Users          nikos, maria, giorgos
-    ├── Groups         GG_IT (nikos), GG_Sales (maria, giorgos),
-    │                  GG_LAPS_Readers (GG_IT, Domain Admins)
-    ├── Workstations   WS01   ← default location for new computers (redircmp)
+    ├── Users             nikos, maria, giorgos
+    ├── Groups            GG_IT (nikos), GG_Sales (maria, giorgos),
+    │                     GG_LAPS_Readers (GG_IT, Domain Admins)  → DL_LAPS_Readers in step 08
+    ├── Service Accounts  svc-domainjoin                           (step 08)
+    ├── Workstations      WS01   ← default location for new computers (redircmp)
     └── Servers
 ```
 
@@ -78,9 +82,9 @@ corp.internal
 | `WS - Logon Banner` | `OU=Workstations` | Computer | All workstations | Legal notice before logon |
 | `USR - Sales Restrictions` | `OU=Users` | User | `GG_Sales` only (security filtering) | Blocks Control Panel and Settings |
 | `WS - Remote Desktop` | `OU=Workstations` | Computer | All workstations | Enables RDP, opens firewall for the lab subnet, adds `GG_IT` to *Remote Desktop Users* |
-| `WS - LAPS` | `OU=Workstations` | Computer | All workstations | Local admin password backed up to AD, encrypted, 14 chars, 30-day rotation; decryptable by `GG_LAPS_Readers` |
+| `WS - LAPS` | `OU=Workstations` | Computer | All workstations | Local admin password backed up to AD, encrypted, 14 chars, 30-day rotation; decryptable by `GG_LAPS_Readers`. Step 08: 20 chars, `DL_LAPS_Readers`, managed `lapsadmin` account |
 
-**Verified results**
+**Verified results** (steps 01–07; step 08 is scripted but not yet run)
 - Banner shown on WS01 after reboot.
 - `maria` (Sales): Control Panel blocked. `nikos` (IT): unaffected — `gpresult` shows the GPO as *filtered out, Denied (Security)*.
 - `nikos` can RDP to WS01; `maria` is denied.
@@ -92,7 +96,7 @@ corp.internal
 The lab follows production practice as closely as a two-VM setup allows. Gaps are documented and fixed as they're found, not hidden.
 
 - **Least privilege** — rights are delegated to a specific group on a specific OU (e.g. LAPS read on `OU=Workstations` only), never by making people Domain Admins.
-- **Dedicated groups for access** — permissions go to purpose-built groups (`GG_LAPS_Readers`), not to team groups, so access survives team changes and can be audited in one place.
+- **Dedicated groups for access** — permissions go to purpose-built groups (`GG_LAPS_Readers`, Domain Local `DL_LAPS_Readers` after step 08), not to team groups, so access survives team changes and can be audited in one place.
 - **Separate admin accounts** *(next step)* — admin rights move off everyday accounts onto dedicated `adm-` accounts. See the roadmap.
 - **No shared local admin passwords** — Windows LAPS gives every workstation a unique, encrypted, rotating password.
 - **Verify by testing as the wrong user** — every control is tested as an allowed non-admin user *and* as a user who should be denied.
@@ -104,7 +108,8 @@ The lab follows production practice as closely as a two-VM setup allows. Gaps ar
 |---|---|---|
 | Servers / workstations | Role + number | `DC01`, `WS01` |
 | OUs | One lab root, split by object type, so GPOs can target computers and users separately | `LAB/Users`, `LAB/Workstations` |
-| Groups | `GG_` = global security group, named by purpose, not by person | `GG_IT`, `GG_Sales`, `GG_LAPS_Readers` |
+| Groups | AGDLP: `GG_` = global group of *people* (who they are), `DL_` = domain local group holding a *permission* (what they may do) | `GG_IT`, `GG_Sales`, `DL_LAPS_Readers` |
+| Service accounts | `svc-` + purpose, kept in `OU=Service Accounts`, one right each | `svc-domainjoin` |
 | GPOs | Prefix shows the scope: `WS -` computer policy for workstations, `USR -` user policy | `WS - LAPS`, `USR - Sales Restrictions` |
 | Admin accounts *(planned)* | `adm-` + username, kept in a separate OU | `adm-nikos` |
 | Domain | `.internal`, reserved for private use (`.local` clashes with mDNS) | `corp.internal` |
@@ -118,6 +123,7 @@ Deliberate simplifications compared with a production domain:
 | One domain controller | At least two DCs for redundancy and replication; FSMO roles planned |
 | No AD backup | Regular system-state backups and a tested forest recovery plan |
 | One flat subnet | Segmented networks; DCs and admin access restricted by firewall |
+| DC's static IP sits inside the macOS DHCP range | Static addresses excluded from DHCP scopes or reserved |
 | Admin rights on everyday accounts *(being fixed — see roadmap)* | Separate admin accounts and tiered administration |
 | No central logging or monitoring | Event forwarding / SIEM, alerting on privileged changes |
 | No PKI, no patch management | AD CS for certificates; WSUS, ConfigMgr or Intune for updates |
@@ -130,6 +136,8 @@ Deliberate simplifications compared with a production domain:
 - **SID-resolved names in GPP** — a typed group name isn't bound to a SID, and with *Update* a mistyped local group name creates a new group on every machine.
 - **LAPS decryptor scope** — the authorized decryptor replaces Domain Admins rather than adding to them, and is fixed at encryption time. A dedicated group containing both IT and Domain Admins avoids locking out recovery.
 - **Read vs decrypt** — LAPS needs both OU read permission and decrypt rights; delegating one without the other fails.
+- **Changing group scope keeps the SID** — converting `GG_LAPS_Readers` to Domain Local in place (via Universal) keeps every ACL and encrypted password valid; creating a new group would mean re-granting and re-encrypting everything.
+- **Time on the only DC** — the PDC emulator is the forest's time source and an emulated VM drifts; it syncs from external NTP, because more than 5 minutes of skew breaks Kerberos.
 
 ## Roadmap
 
@@ -139,9 +147,11 @@ Deliberate simplifications compared with a production domain:
 - [x] Windows LAPS — unique, encrypted, rotating local admin passwords in AD
 
 **Phase 2 — Endpoint security hardening**
-- [ ] **Separate admin accounts for IT** — `OU=Admin Accounts`, `adm-nikos`, `GG_Helpdesk_Admins` replacing `GG_IT` in `GG_LAPS_Readers` and the RDP GPO.
+- [ ] **Separate admin accounts for IT** — `OU=Admin Accounts`, `adm-nikos`, `GG_Helpdesk_Admins` replacing `GG_IT` in the LAPS reader group and the RDP GPO.
   *Why:* today the same account that reads email and browses the web can read every workstation's local admin password. One phishing click would expose them all. Admin tasks should run from an account that does nothing else (*Run as different user*). Test: `nikos` is denied, `adm-nikos` succeeds.
-- [ ] LAPS-managed local admin account usable for sign-in (built-in Administrator is disabled on Windows 11)
+- [ ] LAPS-managed local admin account usable for sign-in (built-in Administrator is disabled on Windows 11) — *scripted in [08](docs/08-least-privilege.md) via automatic account management*
+- [ ] Delegated domain join account, `ms-DS-MachineAccountQuota = 0`, AGDLP for LAPS — *scripted in [08](docs/08-least-privilege.md)*
+- [ ] Export all GPOs to [`gpo/`](gpo/)
 - [ ] BitLocker on WS01 with recovery keys escrowed to AD
 
 **Phase 3 — Hybrid identity**
@@ -157,3 +167,7 @@ Deliberate simplifications compared with a production domain:
 **Infrastructure**
 - [ ] AD Certificate Services (PKI)
 - [ ] Move DC to native x86 hardware or Azure (x86 emulation on Apple Silicon is very slow)
+
+## License
+
+[MIT](LICENSE). The scripts are provided as-is for lab and test environments — review and run with `-WhatIf` before using them anywhere else.

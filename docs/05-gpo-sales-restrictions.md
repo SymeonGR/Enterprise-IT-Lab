@@ -8,6 +8,8 @@
 | Scope | `GG_Sales` only (security filtering) |
 | Effect | Prohibit access to Control Panel and PC settings |
 
+Script: [`scripts/05-gpo-sales-restrictions.ps1`](../scripts/05-gpo-sales-restrictions.ps1) — re-runnable, and fails if the permissions don't end up as expected below.
+
 ## Build it
 
 ```powershell
@@ -55,4 +57,4 @@ If a user was hit before filtering was fixed: `gpupdate /force`, sign out, sign 
 
 | Symptom | Cause | Fix | Prevention |
 |---|---|---|---|
-| GPO applied to all users, not only Sales | The `-Replace` call removing *Apply* from *Authenticated Users* never executed | Corrected in GPMC: *Authenticated Users* moved from Security Filtering to Delegation with **Read** | Verify scripted permission changes with `Get-GPPermission -All` before testing on clients |
+| GPO applied to all users, not only Sales | The `-Replace` call removing *Apply* from *Authenticated Users* never executed | Corrected in GPMC: *Authenticated Users* moved from Security Filtering to Delegation with **Read** | The script now checks `Get-GPPermission -All` itself and stops if *Authenticated Users* still has Apply |

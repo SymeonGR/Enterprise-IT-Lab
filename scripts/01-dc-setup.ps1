@@ -10,7 +10,7 @@
 .PARAMETER Stage
     Network : static IP, DNS client and hostname (reboots if the name changes)
     Forest  : installs AD DS and promotes the server to a new forest (reboots)
-    Post    : adds the DNS forwarder and shows the DC service status
+    Post    : adds the DNS forwarder, sets the external time source, checks DC health
 
 .PARAMETER ConfigPath
     Environment configuration file. Defaults to config/lab.psd1.
@@ -90,7 +90,28 @@ switch ($Stage) {
             Add-DnsServerForwarder -IPAddress $dc.DnsForwarder
         }
 
-        Get-ADDomain | Select-Object DNSRoot, NetBIOSName
+        # The PDC emulator is the time source for the whole forest. An emulated VM's clock drifts,
+        # and more than 5 minutes of skew breaks Kerberos, so sync from an external NTP server.
+        $peer = "$($dc.NtpServer),0x8"
+        $configured = @(w32tm /query /configuration) -match "NtpServer:\s*$([regex]::Escape($dc.NtpServer))"
+        if ($configured) {
+            Write-Verbose "Time source $($dc.NtpServer) already configured."
+        }
+        elseif ($PSCmdlet.ShouldProcess('W32Time', "Sync from $($dc.NtpServer)")) {
+            w32tm /config /manualpeerlist:$peer /syncfromflags:manual /reliable:yes /update | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "w32tm /config failed ($LASTEXITCODE)" }
+            Restart-Service W32Time
+            w32tm /resync /rediscover | Out-Null
+        }
+
+        # The DC must resolve through itself, not the gateway, or it can't register its SRV records
+        $dns = (Get-DnsClientServerAddress -InterfaceAlias $dc.InterfaceAlias -AddressFamily IPv4).ServerAddresses
+        if ($dns -contains $dc.Gateway) {
+            Write-Warning "$($dc.ComputerName) still uses $($dc.Gateway) for DNS. Point it at itself ($($dc.IPAddress) or 127.0.0.1)."
+        }
+
+        Get-ADDomain | Select-Object DNSRoot, NetBIOSName, DomainMode
         Get-Service ADWS, KDC, Netlogon, DNS | Select-Object Name, Status
+        w32tm /query /source
     }
 }

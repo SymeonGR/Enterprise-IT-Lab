@@ -7,7 +7,8 @@
     Creates and links the GPO only if missing, sets the policy value, and applies security
     filtering so only the target group gets Apply. Authenticated Users keep Read (not Apply):
     since MS16-072 user GPOs are read in the computer's context, and without Read the GPO
-    applies to nobody. Ends by printing the permissions for verification.
+    applies to nobody. Ends by checking the permissions and stops if they aren't exactly that,
+    rather than leaving a GPO that applies to every user (docs/05, "Issues and resolutions").
 
 .PARAMETER ConfigPath
     Environment configuration file. Defaults to config/lab.psd1.
@@ -54,6 +55,14 @@ if ($PSCmdlet.ShouldProcess($gpoName, "Apply to $($settings.ApplyGroup) only; Au
     Set-GPPermission -Name $gpoName -TargetName 'Authenticated Users' -TargetType Group -PermissionLevel GpoRead -Replace | Out-Null
 }
 
-Get-GPPermission -Name $gpoName -All |
-    Where-Object { $_.Trustee.Name -in @($settings.ApplyGroup, 'Authenticated Users') } |
-    Select-Object @{ n = 'Trustee'; e = { $_.Trustee.Name } }, Permission
+if ($WhatIfPreference) { return }
+
+$expected = @{ $settings.ApplyGroup = 'GpoApply'; 'Authenticated Users' = 'GpoRead' }
+$perms = Get-GPPermission -Name $gpoName -All | Where-Object { $_.Trustee.Name -in $expected.Keys }
+foreach ($trustee in $expected.Keys) {
+    $actual = ($perms | Where-Object { $_.Trustee.Name -eq $trustee }).Permission
+    if ("$actual" -ne $expected[$trustee]) {
+        throw "$trustee has '$actual' on '$gpoName', expected $($expected[$trustee])."
+    }
+}
+$perms | Select-Object @{ n = 'Trustee'; e = { $_.Trustee.Name } }, Permission
