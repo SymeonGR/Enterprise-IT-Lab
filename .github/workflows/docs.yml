@@ -15,7 +15,14 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Check relative links in Markdown
-        uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411 # v2.8.0
-        with:
-          args: --offline --no-progress './**/*.md'
-          fail: true
+        shell: python
+        run: |
+          import pathlib, re, sys
+          broken = []
+          for md in pathlib.Path('.').rglob('*.md'):
+              for target in re.findall(r'\]\(([^)\s]+)\)', md.read_text(encoding='utf-8')):
+                  path = target.split('#')[0]
+                  if path and not re.match(r'^[a-z]+:', path) and not (md.parent / path).exists():
+                      broken.append(f'{md}: {target}')
+          print('\n'.join(broken) or 'All relative links resolve.')
+          sys.exit(1 if broken else 0)
